@@ -1,0 +1,646 @@
+---
+title: "Group Project ~ Predicting Quality of Life"
+author: "Project 1 Group 93"
+output: pdf_document
+---
+
+# Introduction
+This work examines the factors that may explain differences in quality of life using the Australian World Values Survey. Here, quality of life is treated as a latent variable, which cannot be observed directly through a single question and instead is estimated from several related indicators. The dependent variable quality of life is created through factor analysis of five survey questions related to happiness, self-rated health, freedom of choice and control, life satisfaction, and satisfaction with household finances. After re-coding and cleaning these items, the factor scores are saved as a new variable, life.quality, which is then used as the main outcome in the analysis.
+We have taken this approach because quality of life is a broad and complex concept and no single factor like income, happiness, or health can fully capture it. The World Health Organization defines quality of life as a person’s perception of their position in life within their cultural and value context (World Health Organization, 2012). Similarly, the OECD views well-being as a multidimensional concept shaped by different aspects of life rather than a single factor. The survey itself is organized into different sections covering values,security, politics, economics, optimism and demographics. In light of this , the project aims to study this research question-
+"Which factors might predict higher or lower quality of life?"  
+Therefore, the aim is to examine whether a small set of conceptually distinct factors, drawn from different domains of human life can meaningfully explain the variation in quality of life. The strength of these factor may vary, but the analysis will provide a more clearer and more comprehensive understanding of individual well-being.
+
+# Theory
+Our theory is shaped by the fact that quality of life is affected by more than one part of life. People's sense of well-being is likely to reflect a mix of material conditions, social ties, safety and personal beliefs. It is evident that material resources matter because they make everyday life easier and reduce stress.
+First, income does not guarantee happiness on its own but it does affect the ability to meet needs and maintain stability.In a major review of income and subjective well-being, it is argued that money matters because it protects people from disadvantages and provides greater control over daily life and future planning (Cummins, 2000). So, we can put forward a hypothesis that people in higher income household are expected to report higher quality of life.
+Then comes social relationships as they offer emotional stability and belonging. Family relationships in particular affects psychological and social functioning in several meaningful ways (Thomas et al., 2017). Hence, we can expect that people who place greater importance on family will report higher life satisfaction.
+Furthermore, people may feel respected and satisfied if they like they are in a democratic and responsive environment. Happiness tends to be higher in democratic settings (Frey & Stutzer, 2000) and later work also suggests that democracy and political participation are linked with better well-being (Owen et al., 2008).
+In additon, feeling of safety is another key aspect. People who feel unsafe are more likely to experience worry, stress and reduced satisfaction. Research supports this and have established that feeling safe in an important factor of how people judge their lives (Daemen, 2022).
+Finally, if people believe that hard work leads to success and their actions matter, they will feel more in control of their life. A study shows that locus of control has a significant effect on life satisfaction and mental health (Kesavayuth et al., 2022).
+Taking these hypotheses together, we suggest a coherent theory that quality of life is higher when individuals are more economically secure, socially connected, feel safer, perceive the system as fair and democratic, and believe that life outcomes are shaped more by effort than by luck or connections.
+
+# Data & Methods
+
+## Data
+
+```{r load libraries, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+packages <- c("ggplot2", "dplyr", "psych", "visdat", "GGally", "MVN", "ggpubr")
+
+# Function provided by CoPilot AI in order to install packages only if necessary. Please see reference section for AI usage in this project.
+
+# -----
+invisible(load_or_install <- function(pkg) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    invisible(
+      suppressWarnings(
+        suppressMessages(
+          capture.output(
+            install.packages(pkg, quiet = TRUE),
+            file = NULL
+          )
+        )
+      )
+    )
+  }
+  suppressPackageStartupMessages(
+    library(pkg, character.only = TRUE)
+  )
+})
+
+invisible(for (x in packages) {
+  load_or_install(x)
+})
+# -----
+```
+
+```{r load data, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+wvs.dat <- read.csv("Data/wvs_data.csv")
+```
+
+### Data cleaning
+After loading in data, we carried out our data cleaning process, we first used the codebook to trace relative keys of desired variables, i.e, V170 for security perception, and then recoded these variables to be manipulatable for this assignment. This required getting variables from the previous week to create the life quality variable which we were to use to compare to our predictors. Processes here were to ensure the larger the number, i.e, 5 compared to 1, the better predicted life quality,  and this required some reverse-mapping.
+
+#### Unseen data cleaning
+After recoding and standardizing variables we generated our life quality variable using the variables from the previous tutorial. When we gathered our variable, we removed all other variables in the data set to ensure loading and manipulation of data was efficient as possible. Remaining were our five predictors and the predicted variable life quality.
+
+```{r recode and standardise variables, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+wvs.dat <- wvs.dat %>%
+  dplyr::mutate(happiness = dplyr::recode(V10, 
+                                   '1' = 4,
+                                   '2' = 3,
+                                   '3' = 2,
+                                   '4' = 1, 
+                                   '-2' = NULL),
+         
+         health = dplyr::recode(V11,
+                                '1' = 5, 
+                                '2' = 4, 
+                                '3' = 3,
+                                '4' = 2,
+                                '5' = 1, 
+                                '-2' = NULL),
+         
+         finances = dplyr::recode(V59, 
+                                  '-2' = NULL,
+                                  .default = V59),
+         
+         satisfaction = dplyr::recode(V23, 
+                                  '-2' = NULL,
+                                  .default = V23),
+         
+         freedom = dplyr::recode(V55, 
+                                  '-2' = NULL,
+                                  .default = V55),
+
+         income = dplyr::recode(V237, 
+                                  '-2' = NULL,
+                                  .default = V237),
+         
+         democracy = dplyr::recode(V141, 
+                                  '-2' = NULL,
+                                  .default = V141),
+         
+         family = dplyr::recode(V4, 
+                                  '1' = 4,
+                                   '2' = 3,
+                                   '3' = 2,
+                                   '4' = 1, 
+                                   '-2' = NULL),
+         
+         security_perception = dplyr::recode(V170, 
+                                  '1' = 4,
+                                   '2' = 3,
+                                   '3' = 2,
+                                   '4' = 1, 
+                                   '-2' = NULL),
+         
+         effort_rewarded = dplyr::recode(V100, 
+                                  '-2' = NULL,
+                                  .default = V100))
+```
+
+```{r generating life quality, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+
+fa.fit <- fa(wvs.dat[,c("happiness",
+                         "health",
+                         "finances", 
+                         "satisfaction",
+                         "freedom")], 
+             nfactors=1)
+
+wvs.dat$life.quality <- as.numeric(fa.fit$scores)
+```
+
+```{r select variables, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+wvs.dat <- wvs.dat %>% 
+  select(income, democracy, family, security_perception, effort_rewarded, life.quality)
+```
+
+#### Missing values
+We then visualized the variables and found there to be some missing values. Given the large sample size and low percentage of missing values, we decided to just omit all missing values in the six variables.
+
+```{r plot missings, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+visdat::vis_miss(wvs.dat, warn_large_data = FALSE) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
+    plot.margin = margin(t = 10, r = 10, b = 80, l = 10)  
+  ) + labs(title="Initial Missing Data Graph for Quality of Life Variables")
+```
+
+
+```{r remove missings, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+wvs.dat <- wvs.dat %>% na.omit()
+```
+
+#### Final Plot
+This is the result.
+
+```{r plot freshdata, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+visdat::vis_miss(wvs.dat, warn_large_data = FALSE) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
+    plot.margin = margin(t = 10, r = 10, b = 80, l = 10)  
+  ) + labs(title="Revised Missing Data Graph for Quality of Life Variables")
+```
+
+Overall we are satisfied with our data cleaning procedures, where we have re-coded data to support model creation, created the life quality variable, removed missing values aided by visualizations and still have a sufficiently large data set. 
+
+### Discussion of Variables
+The analysis focuses on a constructed measure of life quality based on five selected variables: income, democracy, family importance, security perception, and effort rewarded. Rather than relying on a single observed item, this study uses factor analysis to combine these variables into a latent indicator, labelled life.quality, which is intended to capture a broader dimension of respondents’ social and material wellbeing. This approach allows the study to summarise several related aspects of life circumstances into one measure for further analysis.
+Income is included as an important material dimension of life quality. In the survey, respondents place their household on an income scale ranging from the lowest to the highest group in the country. Higher income is generally associated with better access to housing, healthcare, daily resources, and financial stability. For this reason, income is expected to contribute positively to overall life quality. In the factor analysis, income shows a moderate positive loading, suggesting that it is one of the more important components of the constructed measure.
+Democracy is included to reflect respondents’ views toward the political system and democratic values. The questionnaire contains items on the importance of living in a democratically governed country and views about how democratic the country is today. Positive attitudes toward democracy may be associated with a greater sense of fairness, rights, participation, and institutional trust, all of which may shape perceived quality of life. In the present analysis, democracy also has a moderate positive loading on the factor, indicating that it contributes meaningfully to the broader life quality construct used in this report.
+Family importance is included because family can provide emotional support, belonging, care, and social stability. These features are often linked to wellbeing and quality of life in sociological research. In the World Values Survey questionnaire, respondents are asked how important family is in their lives, making this a useful indicator of social values and support orientation. However, in this dataset, family importance is highly concentrated at the top end of the scale, with most respondents rating family as very important. This limited variation likely explains why its factor loading is relatively weak compared with the other variables.
+Security perception is one of the most conceptually direct variables in the model. The questionnaire asks respondents how secure they feel these days, which closely relates to daily wellbeing, anxiety, and stability. Feeling safe is a basic condition for a higher quality of life, since insecurity can reduce comfort, confidence, and participation in everyday activities. In the factor analysis, security perception has one of the strongest positive loadings, which suggests that it is a central element of the life quality measure constructed in this study.
+Effort rewarded is included as an indicator of whether respondents believe that hard work leads to success and a better life. This variable reflects beliefs about opportunity, fairness, and social mobility. In theory, individuals who believe that effort is rewarded may be expected to report a higher sense of optimism and control, which could be associated with higher life quality. However, in the present factor analysis, effort rewarded loads negatively on the factor. This suggests that the variable may capture a somewhat different dimension from the other indicators, or that its relationship with the broader life quality construct is more complex than initially expected.
+
+### Exploratory Data Analysis
+Upon completion of the data cleaning section, we then worked on our exploratory analysis to identify any potential patterns or relationships in our data. We started with histograms to view each variable to learn more about our data, then looked into correlations and boxplots to understand relationships between variables.
+
+Our first histogram was one displaying people's values for the life quality variable we defined earlier. 
+
+```{r histogram_of_quality_of_life, fig.cap = "Distribution of quality of life measure produced by factor analysis.",  fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+
+ggplot(wvs.dat, aes(life.quality)) + 
+  geom_histogram(fill = 'black') + 
+  theme_minimal() + ggtitle("Histogram of people's life quality") + xlab("Quality of Life Value") + ylab("Count")
+ 
+```
+
+As seen, the histogram seems to show quite a normal curve centered around 0-0.25. This appears to satisfy the normality assumption for linear regression if used. 
+
+```{r eda_hist_income, fig.width=5, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+ggplot(wvs.dat, aes(x = income)) +
+  geom_histogram(binwidth = 1, boundary = 0.5, fill = "black", color = "white") +
+  theme_minimal() +
+  labs(title = "Distribution of Income",
+       x = "Income Level",
+       y = "Frequency")
+```
+
+The distribution of income is spread across the middle categories, with fewer respondents at the very lowest and highest ends of the scale.
+
+```{r eda_hist_democracy, fig.width=5, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+ggplot(wvs.dat, aes(x = democracy)) +
+  geom_histogram(binwidth = 1, boundary = 0.5, fill = "black", color = "white") +
+  theme_minimal() +
+  labs(title = "Distribution of Democracy",
+       x = "Attitutes towards towards their Democracy",
+       y = "Frequency")
+```
+
+The democracy variable is concentrated more heavily at the upper end of the scale, suggesting that respondents generally report positive attitudes toward democracy.
+
+```{r eda_hist_family, fig.width=5, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+ggplot(wvs.dat, aes(x = family)) +
+  geom_histogram(binwidth = 1, boundary = 0.5, fill = "black", color = "white") +
+  theme_minimal() +
+  labs(title = "Distribution of Family Importance",
+       x = "Attitudes on Family Importance",
+       y = "Frequency")
+```
+
+Family importance is highly skewed toward the highest category, showing that most respondents rate family as very important.
+
+```{r eda_hist_security, fig.width=5, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+ggplot(wvs.dat, aes(x = security_perception)) +
+  geom_histogram(binwidth = 1, boundary = 0.5, fill = "black", color = "white") +
+  theme_minimal() +
+  labs(title = "Distribution of Security Perception",
+       x = "Attitudes on Security Perception",
+       y = "Frequency")
+```
+
+Security perception is mainly concentrated in the middle and upper categories, with relatively fewer low responses.
+
+```{r eda_hist_effort, fig.width=5, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+ggplot(wvs.dat, aes(x = effort_rewarded)) +
+  geom_histogram(binwidth = 1, boundary = 0.5, fill = "black", color = "white") +
+  theme_minimal() +
+  labs(title = "Distribution of Effort Rewarded",
+       x = "Attitudes on Whether Effort is Rewarded",
+       y = "Frequency")
+```
+
+Effort rewarded appears more dispersed than some of the other variables, suggesting greater variation in respondents’ beliefs about whether hard work leads to success.
+
+We have generated a boxplot to visualise the variable distributions comparatively.
+
+```{r eda_boxplots, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+boxplot(wvs.dat,
+        main = "Boxplots of Selected Variables",
+        col = "lightgray",
+        las = 2, ylab = "Rating")
+```
+
+Income has quite a wide distribution centered around 5. Democracy also has a wide distribution but a higher median around 8. Family and security perception only having values 1,2,3 and 4 don't have enough distinct values to form the entire boxplot, but medians tend to be on the upper side of their distributions showing most value family and security highly. There is interestingly a wide distribution for effort rewarded, with a median of 4 signifying people don't always believe effort will be rewarded. Life quality as seen before has some variety but centered around 0.
+
+#### Correlation Graph
+We created a correlation graph to first analyse relationships between variables.
+
+```{r, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+GGally::ggpairs(wvs.dat,
+                lower = list(
+    continuous = GGally::wrap("points", alpha = 0.3, position = "jitter")))
+```
+
+The correlations between the variables are generally weak to moderate. This suggests that the selected variables are related, but not so strongly associated that they appear redundant. Particularly with our life quality variable these were the strongest correlations it seems with four having absolute value of correlation above 0.27, but even so these are weak correlations. We acknowledge given the variety of factors used to create life quality that there finding correlated relationships at all is quite a tough task so we were pleased to see at least some correlation. 
+
+#### Comparative Boxplots
+We then looked further at some of the variables that garnered stronger correlations in the previous visualization to further investigate patterns. 
+
+```{r eda_box_income_security, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+boxplot(security_perception ~ income,
+        data = wvs.dat,
+        main = "Security Perception by Income",
+        xlab = "Income Level",
+        ylab = "Security Perception",
+        col = "lightgray")
+```
+
+This plot shows those in the higher income categories genuinely tend to have more favorable views on security, though given the 1-4 categories for security perception this effect the differences are just too similar. We feel a 1-10 range could've garnered more information on these trends, however it does exist.
+
+```{r eda_box_democracy_security, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+
+boxplot(security_perception ~ democracy,
+        data = wvs.dat,
+        main = "Security Perception by Democracy",
+        xlab = "Democracy Attitude",
+        ylab = "Security Perception",
+        col = "lightgray",
+        las = 1)
+```
+
+There is also a mild positive association between democracy and security perception. As seen as views on democracy become more positive, the median and inner quartile do appear to rise showing a more positive view on democracy does indeed visually weakly-positively correlate with security perception. 
+
+
+```{r eda_box_income_democracy, fig.width=7, fig.height=4, message=FALSE, warning=FALSE, echo=FALSE}
+boxplot(democracy ~ income,
+        data = wvs.dat,
+        main = "Democracy by Income",
+        xlab = "Income Attitude",
+        ylab = "Democracy Attitude",
+        col = "lightgray",
+        las = 1)
+
+```
+
+The other particularly meaningful relationship other than our target was that between Democracy and Income, and while this trend feels stronger on this boxplots graph, correlation above is less at 0.218, and we feel having 1-10 ranges for both the Income and Democracy seem to have inflated the effect in the graph. That said there does appear to be a clear postive trend where as income level increases, views on democracy on average generally become more favourable.
+
+#### Summary
+Overall, the exploratory data analysis suggested that the selected variables are suitable for further analysis. The variables show meaningful variation, their distributions are interpretable, and the correlations are weak to moderate rather than excessively strong. This provides a reasonable basis for proceeding to the next stage of analysis.
+
+## Methods
+This study used cross-sectional data from the 2018 Australian World Values Survey and was analysed in R. The method followed three stages: data cleaning, exploratory data analysis, and construction of a latent quality-of-life score with factor analysis.
+
+### Data Cleaning
+Data cleaning was done first to remove coding problems that would bias results. Five variables were prepared from the raw dataset: income (V237), democracy (V141), family importance (V4), security perception (V170), and effort rewarded (V100). Special missing-value codes of -2 were converted to missing values so they were not treated as real responses. Family importance and security perception were reverse-coded so that higher scores consistently represented more positive conditions; this made interpretation of correlations and factor loadings directionally consistent. Variables were renamed to clearer labels and all non-required columns were removed to keep the analysis focused on the factor-construction set and reduce accidental inclusion of unrelated variables.
+
+Missing-data handling was explicit. Missingness was visualised before and after cleaning using missingness plots to verify where gaps existed and whether recoding worked as intended. After this check, complete-case filtering was applied with listwise deletion. This choice was made because missingness was relatively limited and the remaining sample size was still large (over 1600), so precision remained acceptable while maintaining a transparent workflow.
+
+### EDA
+Exploratory data analysis was used to assess quality, assumptions, and structure before final interpretation. A pairwise plot matrix was used to inspect relationships and detect obvious non-linear patterns. Summary statistics, descriptive statistics, and correlation matrices were used to evaluate central tendency, spread, and association strength. Histograms were used to assess distribution shape for each variable, and boxplots were used to inspect spread and potential outliers. Targeted scatterplots with jitter and fitted linear trend lines were used to examine direction and strength of key bivariate relationships. These steps were done to check whether the data had adequate variation, broadly linear relationships, and no severe multicollinearity before factor analysis. Outliers were retained because values were plausible within bounded survey scales and no clear coding errors were detected.
+
+Quality of life was then estimated as a latent construct using one-factor analysis with the psych factor-analysis function (nfactors = 1) on the five cleaned variables. A one-factor solution was chosen because the objective was to create a single composite life-quality score. Factor scores were extracted and saved as life.quality, then inspected with sample output to confirm successful score generation. Model output was interpreted using loadings and related diagnostics, and visualised with a factor diagram and a histogram of the life.quality distribution. Together, these steps produced the dependent variable used for subsequent explanatory modelling.
+
+
+### Testing
+
+#### Analysis of the research question
+
+The research question is:
+
+**Which factors might predict higher or lower quality of life?**
+
+This question is mainly explanatory because the study aims to understand which factors are linked to quality of life. However, it also has a predictive element because the models are compared based on how well they classify respondents into higher and lower quality of life groups.
+
+| Component | Description |
+|---|---|
+| Research aim | To examine which factors are linked to higher or lower quality of life |
+| Outcome variable | Binary quality of life group: higher vs lower |
+| Main method | Logistic regression |
+| Type of analysis | Explanatory with predictive comparison |
+| Model comparison | Null model, three-predictor model, and full five-predictor model |
+| Performance focus | Classification ability and model fit |
+
+#### Model
+
+Respondents above the median life.quality score are classified as having higher quality of life, while respondents at or below the median are classified as having lower quality of life. A median split is used because the factor score does not have a natural cut-off point and this approach keeps the two outcome groups reasonably balanced for logistic regression.
+
+\[
+QoL_i =
+\begin{cases}
+1, & \text{if life.quality}_i > \text{median(life.quality)} \\
+0, & \text{if life.quality}_i \leq \text{median(life.quality)}
+\end{cases}
+\]
+
+Here, `1` represents higher quality of life and `0` represents lower quality of life. A median split is used because the factor score does not have a natural cut-off point. This also keeps the two outcome groups reasonably balanced, which is useful for logistic regression and model performance evaluation.
+
+The model used for testing is logistic regression. Logistic regression is appropriate because the outcome variable is binary and the goal is to estimate the probability that a respondent has higher quality of life. It also allows us to interpret how each predictor affects the odds of higher quality of life. A positive coefficient means that higher values of the predictor increase the likelihood of higher quality of life, while a negative coefficient means the opposite. The general model can be written as:
+
+\[
+\log\left(\frac{P(QoL_i = 1)}{1 - P(QoL_i = 1)}\right)
+= \beta_0 + \beta_1X_{1i} + \beta_2X_{2i} + ... + \beta_kX_{ki}
+\]
+
+Logistic regression was chosen instead of linear regression because linear regression is designed for continuous outcomes. Since our testing outcome is whether someone is in the higher quality-of-life group or not, linear regression would be less suitable and could produce predicted values outside the valid probability range of 0 to 1. Logistic regression was also chosen instead of a decision tree because our aim is explanation as well as prediction. A decision tree may be useful for classification, but it can be less stable and harder to interpret clearly in relation to our theory. Logistic regression provides a simpler and more transparent way to test whether income, democracy, family importance, security perception, and belief that effort is rewarded are associated with higher quality of life.
+
+#### Assumptions
+
+The choice of logistic regression is based on several assumptions about the data and research question. First, the dependent variable is binary after applying the median split to `life.quality`. Second, each observation represents a separate survey respondent, so the responses are treated as independent. Third, the selected predictors are ordinal or numeric survey variables, which can be included in a logistic model.
+
+The exploratory analysis also supports this modelling choice. The distributions show that the predictors have enough variation for analysis, although some variables such as family importance are more concentrated at the higher end. The correlation matrix suggests that the predictors are not strongly correlated with each other, reducing concern about serious multicollinearity. Finally, because the dataset has a large sample size after missing values are removed, the model should have enough observations to estimate the relationships reliably.
+
+Another assumption behind the model is that the selected predictors are theoretically related to quality of life. Income reflects material security and access to resources. Democracy reflects confidence in political fairness and institutions. Family importance reflects social support and belonging. Security perception reflects how safe people feel in everyday life. Belief that effort is rewarded reflects whether people feel that life outcomes are fair and controllable. Together, these predictors represent economic, political, social, safety, and personal belief dimensions of wellbeing.
+
+
+
+#### Approach
+
+
+Before fitting the final model, we will compare different combinations of predictors. The first model will be a null model with no predictors. This provides a baseline and shows how well the model performs without any explanatory variables and only estimates the overall probability of being in the higher quality of life group.
+
+\[
+\log\left(\frac{P(QoL_i = 1)}{1 - P(QoL_i = 1)}\right)
+= \beta_0
+\]
+
+Any useful model should perform better than this simple model because it does not use any information from the predictors.
+
+The second model is the best simple model with income, security perception, and democracy. 
+
+\[
+\log\left(\frac{P(QoL_i = 1)}{1 - P(QoL_i = 1)}\right)
+= \beta_0 + \beta_1Income_i + \beta_2Security_i + \beta_3Democracy_i
+\]
+
+These are expected to be the strongest predictors because they are expected to have stronger relationships with quality of life than family importance or effort rewarded. Family importance may contribute less because most respondents rate family highly, meaning there is limited variation in the variable. Effort rewarded may also be more complex because people’s beliefs about effort, luck, and success may not relate to quality of life in a simple positive direction.
+
+The third and complete model will be the one with all the 
+all major theoretical dimensions of quality of life. 
+\[
+\log\left(\frac{P(QoL_i = 1)}{1 - P(QoL_i = 1)}\right)
+= \beta_0 + \beta_1Income_i + \beta_2Security_i + \beta_3Democracy_i + \beta_4Family_i + \beta_5Effort_i
+\]
+
+This is the full model. It reflects the holistic theory developed earlier because it includes predictors from different domains of life: economic condition, safety, political perception, social values, and personal belief about effort and success.
+
+The final model will be selected by comparing model fit and interpretability. We will examine coefficient direction, statistical significance, AIC, pseudo R-squared, and classification accuracy. The preferred model will be the one that provides the best balance between explanatory power and theoretical clarity, rather than simply choosing the model with the largest number of predictors.
+
+### Validating
+
+#### Cross-validation
+
+To assess whether the models generalise beyond the sample, k-fold cross-validation is applied. The data is split into several folds, and each model is repeatedly trained and tested across these subsets. This is important in this study because the goal is not only to identify relationships, but also to compare how well different sets of predictors classify individuals into higher and lower quality of life groups.
+
+If Model 3 consistently performs better than Model 2 across folds, it would indicate that the additional variables contribute meaningful predictive value. If performance remains similar, it would suggest that the core predictors already capture most of the relevant variation. Leave-one-out cross-validation is also considered as a robustness check, providing a more detailed evaluation at the individual observation level.
+
+#### Goodness of Fit
+
+Model fit is evaluated using deviance and log-likelihood. The null model provides a baseline, and reductions in deviance when moving to Models 2 and 3 indicate whether the included predictors improve the model’s ability to explain quality of life.
+
+In this context, a large reduction in deviance from the null model to the core model would suggest that income, security, and democracy are key factors in distinguishing higher and lower quality of life. A smaller additional reduction in the full model would indicate that family importance and effort-related beliefs add only limited explanatory power. These comparisons directly help answer the research question by identifying which sets of variables contribute most.
+
+
+#### Residuals
+
+Residual analysis is used to identify observations that are poorly predicted by the model. This is relevant because misclassification may indicate that important factors are not fully captured by the selected variables.
+
+#### Overfitting
+Overfitting is assessed by comparing performance between training and validation results. If the full model performs much better on training data than in cross-validation, it would suggest that the additional variables are not improving generalisable prediction, but instead fitting noise in the sample.
+
+### Bootstrap
+Bootstrapping is used to assess the stability of coefficient estimates. By repeatedly resampling the data and re-estimating the model, we can examine whether the estimated relationships remain consistent. If coefficients vary only slightly across bootstrap samples, it suggests that the identified relationships between predictors and quality of life are reliable and not driven by specific observations.
+
+
+# Results
+## Testing
+
+### Creating the binary outcome
+```{r, echo=FALSE}
+wvs.dat$QoL_high <- ifelse(wvs.dat$life.quality > median(wvs.dat$life.quality), 1, 0)
+
+table(wvs.dat$QoL_high)
+prop.table(table(wvs.dat$QoL_high))
+
+```
+The new variable QoL_high classifies respondents into higher and lower quality-of-life groups using a median split. This creates a balanced binary outcome suitable for logistic regression and allows the analysis to focus on which predictors distinguish respondents above the middle of the latent life-quality distribution from those at or below it.
+
+
+### Fitting the models
+
+```{r model-summaries, echo=TRUE, results='markup', message=FALSE, warning=FALSE}
+model0 <- glm(QoL_high ~ 1, 
+              data = wvs.dat, 
+              family = binomial(link = "logit"))
+
+model1 <- glm(QoL_high ~ income + security_perception + democracy, 
+              data = wvs.dat, 
+              family = binomial(link = "logit"))
+
+model2 <- glm(QoL_high ~ income + security_perception + democracy + family + effort_rewarded, 
+              
+              data = wvs.dat, 
+              family = binomial(link = "logit"))
+
+summary(model0)
+summary(model1)
+summary(model2)
+```
+
+The null model shows no explanatory power, as expected, with no predictors included.
+In the core model, income, security perception, and democracy are all positive and highly significant predictors of higher quality of life. This suggests that better economic position, feeling safer, and stronger confidence in democratic systems are all associated with higher well-being. The noticeable drop in deviance and AIC indicates a substantial improvement over the null model.
+In the full model, all variables remain statistically significant. Income, security, democracy, and family importance have positive effects. However, the negative coefficient for effort_rewarded suggests that individuals who believe success depends less on hard work are less likely to report higher quality of life. The model shows further improvement in deviance and AIC, although the gain compared to the core model is smaller.
+So, the results suggest that the core predictors capture most of the meaningful variation in quality of life.
+
+### Comparing model performance
+
+```{r, echo=FALSE}
+pseudo_r2 <- function(model) {
+  1 - (as.numeric(logLik(model)) / as.numeric(logLik(update(model, . ~ 1))))
+}
+
+data.frame(
+  Model = c("Null", "Core", "Full"),
+  AIC = c(AIC(model0), AIC(model1), AIC(model2)),
+  Pseudo_R2 = c(NA, pseudo_r2(model1), pseudo_r2(model2))
+)
+```
+
+```{r, echo=FALSE}
+pred0 <- ifelse(predict(model0, type = "response") > 0.5, 1, 0)
+pred1 <- ifelse(predict(model1, type = "response") > 0.5, 1, 0)
+pred2 <- ifelse(predict(model2, type = "response") > 0.5, 1, 0)
+
+acc0 <- mean(pred0 == wvs.dat$QoL_high)
+acc1 <- mean(pred1 == wvs.dat$QoL_high)
+acc2 <- mean(pred2 == wvs.dat$QoL_high)
+
+data.frame(
+  Model = c("Null", "Core", "Full"),
+  Accuracy = c(acc0, acc1, acc2)
+)
+```
+The model comparison shows a clear improvement as predictors are added to the null one. The AIC decreases substantially from the null model to the core model, and further with the full model, indicating better model fit.
+The pseudo R² also increases from the core (roughly equal to 0.09) to the full model (roughly equal to 0.12). This suggests that the additional variables provide some improvement in explaining quality of life. However, the increase is relatively small and indicates that most of the explanatory power comes from the core predictors.
+Hence, while the full model performs best, the core model already captures the majority of the meaningful variation in quality of life.
+
+### Interpreting the testing results
+After comparing the null, core, and full models to assess which predictors best explain differences in quality of life. The results show a clear improvement from the null to the core model, with a substantial drop in AIC, indicating that income, security perception, and democracy add strong explanatory value.
+The full model further improves fit, but the gain is relatively modest. The small increase in pseudo R² suggests that while family importance and effort rewarded contribute, they add limited additional explanatory power beyond the core predictors.
+The regression coefficients further support these findings. Income, security, democracy, and family importance have positive effects, increasing the likelihood of higher quality of life, while effort rewarded shows a negative relationship. Overall, the results indicate that the core predictors capture most of the meaningful variation, with the full model offering only incremental improvement.
+
+## Validating
+
+### Cross-validation
+
+To assess whether the models generalise beyond the sample, k-fold cross-validation is applied. The data is split into several folds, and each model is repeatedly trained and tested across these subsets. This is important in this study because the goal is not only to identify relationships, but also to compare how well different sets of predictors classify individuals into higher and lower quality of life groups.
+
+```{r, echo=FALSE, warning=FALSE}
+set.seed(4207)
+
+cv_model1 <- boot::cv.glm(wvs.dat, model1, K = 10)$delta[1]
+cv_model2 <- boot::cv.glm(wvs.dat, model2, K = 10)$delta[1]
+
+data.frame(
+  Model = c("Core", "Full"),
+  CV_Error = c(cv_model1, cv_model2),
+  CV_Accuracy = c(1 - cv_model1, 1 - cv_model2)
+)
+
+```
+The cross-validation results show that both models perform reasonably well with similar levels of accuracy. The full model has a slightly lower error and higher accuracy than the core model, but the improvement is minimal. This suggests that although adding family importance and effort rewarded provides some benefit, most of the predictive power comes from the core variables, such as income, security perception, and democracy.
+Therefore, the core model already offers a stable and reliable explanation of quality of life, with the full model providing only a small additional gain
+
+### Goodness of Fit
+
+Model fit is evaluated using deviance and log-likelihood. The null model provides a baseline, and reductions in deviance when moving to Models 2 and 3 indicate whether the included predictors improve the model’s ability to explain quality of life.
+
+In this context, a large reduction in deviance from the null model to the core model would suggest that income, security, and democracy are key factors in distinguishing higher and lower quality of life. A smaller additional reduction in the full model would indicate that family importance and effort-related beliefs add only limited explanatory power. These comparisons directly help answer the research question by identifying which sets of variables contribute most.
+
+```{r, echo=FALSE}
+data.frame(
+  Model = c("Null", "Core", "Full"),
+  Deviance = c(deviance(model0), deviance(model1), deviance(model2)),
+  LogLik = c(as.numeric(logLik(model0)),
+             as.numeric(logLik(model1)),
+             as.numeric(logLik(model2))),
+  AIC = c(AIC(model0), AIC(model1), AIC(model2))
+)
+
+```
+The results show a clear improvement in model fit as predictors are added. Both deviance and AIC decrease substantially from the null model to the core model, indicating that income, security perception, and democracy significantly improve the explanation of quality of life.
+The full model further reduces deviance and AIC, suggesting a better overall fit. However, the improvement compared to the core model is smaller. So, the additional variables of family importance and effort rewarded contribute to only extra explanatory value.
+
+### Residuals
+```{r, echo=FALSE}
+summary(residuals(model2, type = "deviance"))
+summary(rstandard(model2))
+```
+The residuals are centred around zero with no strong skew. This shows that the model fits the data reasonably well. The spread of values indicates some variation, but there are no extreme patterns that would suggest the model is driven by a few unusual observations.
+So, the residuals support that the model captures the main relationships in the data. However, the presence of some larger residuals indicates that not all observations are perfectly explained, which is expected in real-world data
+
+### Overfitting
+```{r, echo=FALSE}
+data.frame(
+  Model = c("Core", "Full"),
+  Training_Accuracy = c(acc1, acc2),
+  CV_Accuracy = c(1 - cv_model1, 1 - cv_model2)
+)
+
+```
+
+The comparison between training and cross-validation accuracy shows that both models perform consistently, with cross-validation having slightly higher accuracy than training accuracy. This suggests that the models generalise reasonably well and are not overfitting.
+The full model also performs slightly better than the core model, but the improvement is small. So, even though the additional variables add some predictive value, most of the explanatory power comes from the core predictors.
+
+### Bootstrap
+```{r, echo=FALSE, warning=FALSE}
+set.seed(4207)
+
+boot_fn <- function(data, index) {
+  fit <- glm(QoL_high ~ income + security_perception + democracy + family + effort_rewarded,
+             data = data[index, ], family = binomial)
+  coef(fit)
+}
+
+boot_results <- boot::boot(wvs.dat, statistic = boot_fn, R = 500)
+
+boot_results
+apply(boot_results$t, 2, sd)
+
+```
+The bootstrap results suggest that most coefficients are relatively stable, with small bias and moderate standard errors across resamples. This indicates that the key relationships in the model, particularly for income, security perception, democracy, and effort rewarded are consistent and not heavily driven by specific observations.
+However, the family variable shows higher variability compared to others, which means that its effect is less stable. Altogether, the bootstrap analysis supports that the main findings are reasonably robust, but it also highlights some uncertainty in the contribution of certain predictors.
+
+# Discussion
+All variables we used had significant z-scores, showing predictability in gauging our quality of life variable. 
+
+In terms of the models themselves,the full and core models seemed to be far better than the baseline null model, with the core having 0.65 accuracy and the full with the extra variables having 0.67. This was further evidenced by cross-validation, deviance, log-likelihood and AIC assessments, whereby the full model seemed narrowly better than the core model. 
+
+In summary, variables we've assessed here appear to have light-moderate predictive power in gauging quality of life when amalgamated in models, confirming there is some backing of our claims that these variables influence quality of life. 
+
+# Limitations
+This study has several limitations that should be considered when interpreting the findings.
+
+First, the quality-of-life variable is a constructed latent measure rather than a directly observed outcome. Although factor analysis provides a useful way to combine multiple indicators into a broader measure, the resulting variable should still be interpreted as an exploratory index rather than a definitive measure of quality of life. 
+
+Second, the study relies on cross-sectional survey data, which means that the analysis identifies associations rather than causal relationships. For example, higher income may be associated with better quality of life, but the design does not allow us to conclude that income directly causes improvements in quality of life. Similar caution applies to democracy, security perception, and the other predictors.
+
+Third, some of the variables are measured using relatively coarse survey scales. Family importance and security perception, for example, are based on only four response categories, which limits variation and may reduce the ability of the models to detect more nuanced relationships. This issue is particularly visible for family importance, where responses are heavily concentrated at the top of the scale.
+
+Fourth, the binary outcome used in the logistic regression is created by applying a median split to the continuous factor score. This makes the model easier to interpret in classification terms, but it also reduces information by collapsing a continuous latent variable into two groups. Some subtle differences in life quality may therefore be lost in the testing stage, and in retrospect we may have been better off incorporated other classes, i.e, neutral life quality in a multinomial logistic regression.
+
+Fifth, listwise deletion was used to handle missing values. Although the proportion of missing data was relatively small and the remaining sample size stayed large, removing incomplete cases may still introduce some bias if the missingness is not completely random. 
+
+Finally, the selected predictors do not cover all possible influences on quality of life. Other potentially important factors, such as education, employment status, age, health history, and broader social background, were not included in the current predictive models. Future research could extend the analysis by using a wider predictor set, testing alternative specifications of the quality-of-life measure, and comparing logistic classification with models that retain the continuous factor score.
+
+# Conclusion
+
+This study examined which factors are associated with higher or lower quality of life using the Australian World Values Survey. By constructing a latent measure of quality of life and applying logistic regression, the analysis shows that a small set of key factors can meaningfully explain differences in well-being.
+
+The results indicate that variables we've identified are significant predictors of quality of life. However the model is only moderately strong, indicating while there is some logic to our theory there is still much complexity to defining life quality that goes beyond our model.
+
+# References
+
+Cummins, R. A. (2000). Personal income and subjective well-being: A review. *Journal of Happiness Studies, 1*(2), 133–158. https://doi.org/10.1023/a:1010079728426
+
+Daemen, J. A. M. (2022). Being sure and living well: How security affects human flourishing. *The Journal of Value Inquiry*. https://doi.org/10.1007/s10790-021-09870-6
+
+Frey, B. S., & Stutzer, A. (2000). Happiness prospers in democracy. *Journal of Happiness Studies, 1*(1), 79–102. https://doi.org/10.1023/a:1010028211269
+
+Kesavayuth, D., Tran, D. B., & Zikos, V. (2022). Locus of control and subjective well-being: Panel evidence from Australia. *PLOS ONE, 17*(8), e0272714. https://doi.org/10.1371/journal.pone.0272714
+
+OECD. (2025). *Measuring well-being and progress*. https://www.oecd.org/en/topics/measuring-well-being-and-progress.html
+
+Owen, A. L., Videras, J., & Willemsen, C. (2008). Democracy, participation, and life satisfaction. *Social Science Quarterly, 89*(4), 987–1005. https://www.jstor.org/stable/42956357
+
+Thomas, P. A., Liu, H., & Umberson, D. (2017). Family relationships and well-being. *Innovation in Aging, 1*(3), 1–11. https://doi.org/10.1093/geroni/igx025
+
+World Health Organization. (2012). *The World Health Organization quality of life (WHOQOL)*. https://www.who.int/publications/i/item/WHO-HIS-HSI-Rev.2012.03
+
+## AI Usage
+We acknowledge using GenerativeAI in the form of Microsoft CoPilot for the function load_or_install() in the Data Loading to automatically download only the required packages, and load all libraries, for the tutor's convenience. Other code is created by us. Also, generative AI tools were used to assist with finding relevant scholarly sources, locating appropriate datasets, refining R code. Grammarly was used for grammatical corrections and formatting APA references. 
+
+In addition, GitHub Copilot was used as a supportive tool to aid in understanding the project and to assist with grammar and language refinement.
